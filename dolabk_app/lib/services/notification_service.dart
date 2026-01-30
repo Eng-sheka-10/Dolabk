@@ -27,12 +27,21 @@ class NotificationService {
         queryParameters: queryParams,
       );
 
-      final notifications = (response.data as List)
-          .map((json) => Notification.fromJson(json))
-          .toList();
+      // Parse response structure
+      if (response.data is Map<String, dynamic>) {
+        final responseData = response.data as Map<String, dynamic>;
+        final dataList = (responseData['data'] as List?) ?? [];
+        
+        final notifications = dataList
+            .map((json) => Notification.fromJson(json as Map<String, dynamic>))
+            .toList();
 
-      return ApiResponse.success(notifications);
+        return ApiResponse.success(notifications);
+      }
+
+      return ApiResponse.error('Invalid response format');
     } catch (e) {
+      print('Error in getNotifications: $e');
       return ApiResponse.error(ErrorHandler.handleError(e));
     }
   }
@@ -51,6 +60,16 @@ class NotificationService {
   Future<ApiResponse<void>> markAllAsRead() async {
     try {
       await _dioClient.put('/api/Notifications/mark-all-read');
+      return ApiResponse.success(null);
+    } catch (e) {
+      return ApiResponse.error(ErrorHandler.handleError(e));
+    }
+  }
+
+  // Delete notification
+  Future<ApiResponse<void>> deleteNotification(int id) async {
+    try {
+      await _dioClient.delete('/api/Notifications/$id');
       return ApiResponse.success(null);
     } catch (e) {
       return ApiResponse.error(ErrorHandler.handleError(e));
@@ -76,10 +95,17 @@ class NotificationService {
   // Get notification count
   Future<ApiResponse<int>> getUnreadCount() async {
     try {
-      final response = await getUnreadNotifications(pageSize: 1000);
-      if (response.success && response.data != null) {
-        return ApiResponse.success(response.data!.length);
+      final response = await _dioClient.get(
+        '/api/Notifications',
+        queryParameters: {'page': 1, 'pageSize': 1},
+      );
+      
+      if (response.data is Map<String, dynamic>) {
+        final responseData = response.data as Map<String, dynamic>;
+        final unreadCount = (responseData['unreadCount'] as int?) ?? 0;
+        return ApiResponse.success(unreadCount);
       }
+      
       return ApiResponse.success(0);
     } catch (e) {
       return ApiResponse.error(ErrorHandler.handleError(e));
